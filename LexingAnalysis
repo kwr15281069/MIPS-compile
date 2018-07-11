@@ -1,0 +1,133 @@
+#C语言词法分析程序
+#输入为.c程序，输出为MIPS汇编指令
+
+		.data
+		
+		#ReWord作为保留字
+		ReWord: 
+		r1: .asciiz "#include"
+		r2: .asciiz "#define"
+		r3: .asciiz "if"
+		r4: .asciiz "int"
+		r5: .asciiz "void"
+		r6: .asciiz "double"
+		
+		addrw: .word r1, r2, r3, r4, r5, r6
+		
+		#存放当前扫描到的字符（串）
+		current: .space 20
+		
+		#符号表
+		#l:letter
+		#d:digit
+		#r:reword
+		#n:function name
+		#大写字母均为语法产生式的非终结符号
+		#其中部分符号只需词法翻译，不需语法翻译
+		table1: .byte '=', '+', '-', '*', '/', '{', '}', '(', ')', ';', 'l', 'd', '#', 'A', 'V',
+		              'E', 'T', 'F', 'r', 'n'
+
+		#语法产生式表
+		table2:
+		t1: .asciiz "A→V=E"
+		t2: .asciiz "E→E+T"
+		t3: .asciiz "E→E-T"
+		t4: .asciiz "E→T"
+		t5: .asciiz "T→T*F"
+		t6: .asciiz "T→T/F"
+		t7: .asciiz "T→F"
+		t8: .asciiz "F→(E)"
+		t9: .asciiz "F→i"
+		t10: .asciiz "V→i"
+		
+		addt: .word t1, t2, t3, t4, t5, t6, t7, t8, t9, t10
+		
+		#文件名
+		filename: .asciiz "xxx"
+		
+		#存放读入一行代码的缓冲区
+		#fBuffer: .space 200
+		
+		#存放二元式
+		#值
+		value: .space 1024
+		#类别码
+		type: .space 1024
+		
+		#正确及错误信息判断
+		StrE: .asciiz "Error!\n"
+		StrS: .asciiz "Success!\n"
+		
+		.text
+		
+		Lexing:
+		    move $t2, current # 当前读取字符串的第一个字符放入寄存器
+		    sge $t3, $t2, 97
+		    sle $t4, $t2, 122
+		    and $t5, $t3, $t4
+		    beq $t5, 1, next1 # 当第一个字符为字母时
+		    
+		    sge $t3, $t2, 48
+		    sle $t4, $t2, 57
+		    and $t5, $t3, $t4
+		    beq $t5, 1, next2 # 当第一个字符为数字时
+		    
+		    seq $t3, $t2, 35 # '#'
+		    sge $t4, $t2, 40 
+		    sle $t5, $t2, 43 # '(' ')' '*' '+'
+		    and $t6, $t4, $t5
+		    or $t7, $t3, $t6 # t7存放标志位内容
+		    seq $t3, $t2, 45 # '-'
+		    seq $t4, $t2, 47 # '/'
+		    seq $t5, $t2, 59 # ';'
+		    seq $t6, $t2, 61 # '='
+		    or $t7, $t7, $t3
+		    or $t7, $t7, $t4
+		    or $t7, $t7, $t5
+		    or $t7, $t7, $t6
+		    seq $t3, $t2, 123 # '{'
+		    seq $t4, $t2, 125 # '}'
+		    or $t7, $t7, $t3
+		    or $t7, $t7, $t4
+		    beq $t7, 1, next3 # 当第一个字符为符号表中已存在的符号时
+		    
+		    li $v0, 4
+		    la $a0, StrE # 以上三种类型都不是，输出错误信息
+		    jr $ra
+		    
+		
+		openCFile:
+		    move $t1, ' '
+		    li $v0, 13
+		    la $a0, filename
+		    li $a1, 0
+		    li $a2, 0
+		    syscall
+		    move $s6, $v0
+		    
+		    #从文件中读
+		    li $v0, 14       # system call for read from file
+		    move $a0, $s6    # file descriptor
+		    la $a1, current
+		    
+	   L1: li $a2, 1        # hardcoded buffer length
+		    syscall          # read from file
+		    bne $t0, $t1, L1
+		    jal Lexing       # Lexing Analysis
+		    
+		    #此时current中存放的是当前扫描到的字符串
+		    
+		    #la $a0, current
+		    #add $a0, $a0, $v0  # calculate address of byte after file data 
+		    #sb $zero, 0($a0)   # set that byte to zero
+		    
+		    #Close the file 
+		    li $v0, 16       # system call for close file
+		    move $a0, $s6    # file descriptor to close
+		    syscall          # close file
+		    jr $ra
+		    
+
+		
+		
+		
